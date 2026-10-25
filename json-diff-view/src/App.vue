@@ -55,7 +55,13 @@
       <div v-if="resultData.diffResult && resultData.diffResult.length > 0" class="result-section">
         <div class="result-header">
           <h3 class="result-title">JSON对比结果</h3>
-          <a-checkbox v-model:checked="showIgnored"> 显示忽略的对比 </a-checkbox>
+          <div class="result-header__right">
+            <span v-if="resultData.summary" class="result-summary">
+              新增 {{ resultData.summary.added }} / 删除 {{ resultData.summary.deleted }} / 修改
+              {{ resultData.summary.modified }}
+            </span>
+            <a-checkbox v-model:checked="showIgnored"> 显示忽略的对比 </a-checkbox>
+          </div>
         </div>
 
         <!-- 差异结果表格 -->
@@ -134,9 +140,17 @@ interface DiffRow {
   newValue: unknown
 }
 
+interface DiffSummary {
+  added: number
+  deleted: number
+  modified: number
+  total: number
+}
+
 interface JsonCompareResponse {
   status?: string
   exceptionMsg?: string
+  summary?: DiffSummary
   diffResult: DiffRow[]
 }
 
@@ -253,6 +267,7 @@ const handleExampleChange = (value: number | undefined) => {
 const resultData = reactive<JsonCompareResponse>({
   status: '',
   exceptionMsg: '',
+  summary: undefined,
   diffResult: [],
 })
 
@@ -329,7 +344,7 @@ const formatKeyForDisplay = (key: string): string => {
 
 // 对象转字符串处理
 const obj2Str = (obj: unknown): string | null => {
-  if (obj === null) {
+  if (obj === null || obj === undefined) {
     return null
   }
   if (
@@ -409,24 +424,34 @@ const validateJson = (jsonStr: string, fieldName: string): { valid: boolean; err
   }
 }
 
-/** 本地 JSON 对比（原 mrp 页面依赖的后端接口占位，可在接入 API 时替换） */
+/**
+ * 调用后端 json-diff-server 的对比接口。
+ *
+ * 请求体 / 响应体与后端 `DiffRequest` / `DiffResponse` 一一对应：
+ * - 请求：{ oldResult, newResult, ignorePaths?, maxDepth?, lenientNumbers? }
+ * - 响应：{ status, exceptionMsg, summary, diffResult: [{ key, oldValue, newValue }] }
+ *
+ * oldValue / newValue 后端已序列化为字符串，缺失侧为 null。
+ */
 async function jsonCompare(payload: JsonCompareData): Promise<JsonCompareResponse> {
-  const { diffWithMeta } = await import('json-diff-toolkit')
-  const oldVal = payload.oldResult?.trim() ? JSON.parse(payload.oldResult) : {}
-  const newVal = payload.newResult?.trim() ? JSON.parse(payload.newResult) : {}
-  const output = diffWithMeta(oldVal, newVal)
-
-  const diffResult: DiffRow[] = output.results.map((item) => ({
-    // 将 toolkit 的方括号路径（tags[2]）转为点号路径（tags.2），与 JsonDiffViewer 内部格式保持一致
-    key: item.path.replace(/\[(\d+)\]/g, '.$1'),
-    oldValue: item.oldValue,
-    newValue: item.newValue,
-  }))
-
-  return {
-    status: 'ok',
-    diffResult,
+  let response: Response
+  try {
+    response = await fetch('/api/json-diff/compare', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+  } catch {
+    throw new Error('无法连接对比服务，请确认 json-diff-server 已启动')
   }
+
+  const body = await response.json().catch(() => null)
+
+  if (!response.ok || !body || body.status !== 'ok') {
+    throw new Error(body?.exceptionMsg || `对比失败（HTTP ${response.status}）`)
+  }
+
+  return body as JsonCompareResponse
 }
 
 // JSON对比处理
@@ -550,6 +575,17 @@ const handleJsonCompare = async () => {
         font-size: 16px;
         font-weight: 600;
         color: #303133;
+      }
+
+      &__right {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .result-summary {
+        font-size: 13px;
+        color: #606266;
       }
     }
 

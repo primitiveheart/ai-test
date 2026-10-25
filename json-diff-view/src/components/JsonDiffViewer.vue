@@ -22,7 +22,7 @@
                         'highlight-normal': highlightedLineIndex === lineIndex && highlightedLineIndexType === 'normal',
                     }
                 ]" class="json-line">
-                    <span class="line-number">{{ line.oldLine ? line.oldLineNumber : '' }}</span>
+                    <span class="line-number">{{ line.oldLine ? line.oldLine.lineIndex + 1 : '' }}</span>
                     <span v-if="line.oldLine?.foldable" class="fold-icon" :title="foldedPaths.has(getFoldablePath(line.oldLine)) ? '展开' : '收起'"
                         @click="toggleFold(getFoldablePath(line.oldLine))">
                         <CaretRightFilled v-if="foldedPaths.has(getFoldablePath(line.oldLine))" />
@@ -55,7 +55,7 @@
                 <div v-for="(line, lineIndex) in mergedLines" :key="lineIndex" :class="[
                     getLineClass(line.newLine, 'new'),
                 ]" class="json-line">
-                    <span class="line-number">{{ line.newLine ? line.newLineNumber : '' }}</span>
+                    <span class="line-number">{{ line.newLine ? line.newLine.lineIndex + 1 : '' }}</span>
                     <span v-if="line.newLine?.foldable" class="fold-icon" :title="foldedPaths.has(getFoldablePath(line.newLine)) ? '展开' : '收起'"
                         @click="toggleFold(getFoldablePath(line.newLine))">
                         <CaretRightFilled v-if="foldedPaths.has(getFoldablePath(line.newLine))" />
@@ -97,8 +97,6 @@ interface JsonLine {
 interface MergedLine {
     oldLine: JsonLine | null;
     newLine: JsonLine | null;
-    oldLineNumber: number;
-    newLineNumber: number;
 }
 
 type DiffType = 'added' | 'deleted' | 'modified';
@@ -441,9 +439,7 @@ const mergedLines = computed((): MergedLine[] => {
   const newLines = parseJsonToLines(props.newJson);
   
   const merged: MergedLine[] = [];
-  let oldLineNumber = 1;
-  let newLineNumber = 1;
-  
+
   // 构建路径到行的映射
   const oldPathToLines = new Map<string, JsonLine[]>();
   const newPathToLines = new Map<string, JsonLine[]>();
@@ -518,8 +514,6 @@ const mergedLines = computed((): MergedLine[] => {
             merged.push({
               oldLine,
               newLine,
-              oldLineNumber: oldLineNumber++,
-              newLineNumber: newLineNumber++,
             });
             // 跳过折叠范围
             if (oldIsFolded && oldLine.endLineIndex !== undefined) {
@@ -566,8 +560,6 @@ const mergedLines = computed((): MergedLine[] => {
                     merged.push({
                       oldLine: oldLineAtI,
                       newLine: newLineAtI,
-                      oldLineNumber: oldLineNumber++,
-                      newLineNumber: newLineNumber++,
                     });
                     // 跳过折叠范围
                     if (oldLineAtI && oldLineAtI.endLineIndex !== undefined) {
@@ -581,8 +573,6 @@ const mergedLines = computed((): MergedLine[] => {
                     merged.push({
                       oldLine: oldLineAtI,
                       newLine: newLineAtI,
-                      oldLineNumber: oldLineNumber++,
-                      newLineNumber: newLineAtI ? newLineNumber++ : 0,
                     });
                     if (oldLineAtI && oldLineAtI.endLineIndex !== undefined) {
                       const skipCount = oldLineAtI.endLineIndex - (oldIndex + i) + 1;
@@ -595,8 +585,6 @@ const mergedLines = computed((): MergedLine[] => {
                     merged.push({
                       oldLine: oldLineAtI,
                       newLine: newLineAtI,
-                      oldLineNumber: oldLineAtI ? oldLineNumber++ : 0,
-                      newLineNumber: newLineNumber++,
                     });
                     if (newLineAtI && newLineAtI.endLineIndex !== undefined) {
                       const skipCount = newLineAtI.endLineIndex - (newIndex + i) + 1;
@@ -614,24 +602,18 @@ const mergedLines = computed((): MergedLine[] => {
                       merged.push({
                         oldLine: oldLineAtI,
                         newLine: newLineAtI,
-                        oldLineNumber: oldLineNumber++,
-                        newLineNumber: newLineNumber++,
                       });
                     } else if (i < oldLineCount) {
                       // 只有左边有内容，右边补空行
                       merged.push({
                         oldLine: oldLineAtI,
                         newLine: null,
-                        oldLineNumber: oldLineNumber++,
-                        newLineNumber: 0,
                       });
                     } else {
                       // 只有右边有内容，左边补空行
                       merged.push({
                         oldLine: null,
                         newLine: newLineAtI,
-                        oldLineNumber: 0,
-                        newLineNumber: newLineNumber++,
                       });
                     }
                     i++;
@@ -645,8 +627,6 @@ const mergedLines = computed((): MergedLine[] => {
                   merged.push({
                     oldLine: oldLines[oldIndex + i],
                     newLine: newLines[newIndex + i],
-                    oldLineNumber: oldLineNumber++,
-                    newLineNumber: newLineNumber++,
                   });
                 }
                 oldIndex += oldLineCount;
@@ -657,8 +637,6 @@ const mergedLines = computed((): MergedLine[] => {
               merged.push({
                 oldLine,
                 newLine,
-                oldLineNumber: oldLineNumber++,
-                newLineNumber: newLineNumber++,
               });
               oldIndex++;
               newIndex++;
@@ -675,16 +653,12 @@ const mergedLines = computed((): MergedLine[] => {
             merged.push({
               oldLine,
               newLine: null,
-              oldLineNumber: oldLineNumber++,
-              newLineNumber: 0,
             });
             oldIndex = oldLine.endLineIndex + 1;
           } else {
             merged.push({
               oldLine,
               newLine: null,
-              oldLineNumber: oldLineNumber++,
-              newLineNumber: 0,
             });
             oldIndex++;
           }
@@ -699,16 +673,12 @@ const mergedLines = computed((): MergedLine[] => {
             merged.push({
               oldLine: null,
               newLine,
-              oldLineNumber: 0,
-              newLineNumber: newLineNumber++,
             });
             newIndex = newLine.endLineIndex + 1;
           } else {
             merged.push({
               oldLine: null,
               newLine,
-              oldLineNumber: 0,
-              newLineNumber: newLineNumber++,
             });
             newIndex++;
           }
@@ -717,8 +687,6 @@ const mergedLines = computed((): MergedLine[] => {
           merged.push({
             oldLine,
             newLine,
-            oldLineNumber: oldLineNumber++,
-            newLineNumber: newLineNumber++,
           });
           oldIndex++;
           newIndex++;
@@ -734,16 +702,12 @@ const mergedLines = computed((): MergedLine[] => {
           merged.push({
             oldLine,
             newLine: null,
-            oldLineNumber: oldLineNumber++,
-            newLineNumber: 0,
           });
           oldIndex = oldLine.endLineIndex + 1;
         } else {
           merged.push({
             oldLine,
             newLine: null,
-            oldLineNumber: oldLineNumber++,
-            newLineNumber: 0,
           });
           oldIndex++;
         }
@@ -758,16 +722,12 @@ const mergedLines = computed((): MergedLine[] => {
           merged.push({
             oldLine: null,
             newLine,
-            oldLineNumber: 0,
-            newLineNumber: newLineNumber++,
           });
           newIndex = newLine.endLineIndex + 1;
         } else {
           merged.push({
             oldLine: null,
             newLine,
-            oldLineNumber: 0,
-            newLineNumber: newLineNumber++,
           });
           newIndex++;
         }

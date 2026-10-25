@@ -15,4 +15,13 @@ export default defineConfig({
       dts: true,
     }),
   ],
+  server: {
+    // 开发态把 /api 转发到 Spring Boot 服务，前端代码里统一用相对路径 /api/...
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+    },
+  },
 })
