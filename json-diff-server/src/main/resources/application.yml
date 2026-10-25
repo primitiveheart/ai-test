@@ -1,0 +1,29 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: json-diff-server
+  jackson:
+    # 差异项里缺失侧的 oldValue / newValue 是 null，不参与序列化，
+    # 前端拿到 undefined 与拿到 null 的判定结果一致
+    default-property-inclusion: non_null
+
+logging:
+  level:
+    com.diff: INFO
+
+diff:
+  # 单份 JSON 允许的最大字符数（约 5MB）
+  max-json-length: 5242880
+  # 数字宽松比较：1 与 1.0 视为相等
+  lenient-numbers: true
+  # 默认递归深度，非正数表示不限制
+  default-max-depth: 0
+  # 全局默认忽略的路径，可在请求里用 ignorePaths 覆盖
+  default-ignore-paths: []
+  cors:
+    # 允许访问的前端来源（Vite dev server 默认 5173）
+    allowed-origins:
+      - http://localhost:5173
+      - http://127.0.0.1:5173
